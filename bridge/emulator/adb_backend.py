@@ -33,11 +33,22 @@ import logging
 import shutil
 import struct
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from typing import List, Optional
 
 import numpy as np
+
+
+def _hidden() -> dict:
+    """adb.exe is a console program. Without this, every screenshot flashes a window."""
+    if sys.platform != "win32":
+        return {}
+    info = subprocess.STARTUPINFO()
+    info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    info.wShowWindow = subprocess.SW_HIDE
+    return {"creationflags": subprocess.CREATE_NO_WINDOW, "startupinfo": info}
 
 from bridge.emulator.capture_backend import BackendResolution, CaptureBackend
 from bridge.safety import SafetyFramework, get_safety
@@ -81,7 +92,7 @@ def list_adb_devices(adb_path: str = "adb", timeout: float = DEFAULT_ADB_TIMEOUT
     try:
         result = subprocess.run(
             [adb_path, "devices", "-l"],
-            capture_output=True, text=True, timeout=timeout,
+            capture_output=True, text=True, timeout=timeout, **_hidden(),
         )
     except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
         logger.warning("list_adb_devices: adb invocation failed: %s", exc)
@@ -187,7 +198,7 @@ class ADBBackend(CaptureBackend):
         try:
             result = subprocess.run(
                 [self.adb_path, "-s", self.serial, "exec-out", "screencap", "-p"],
-                capture_output=True, timeout=self.timeout,
+                capture_output=True, timeout=self.timeout, **_hidden(),
             )
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
             logger.warning("ADBBackend(%s): png capture failed: %s", self.serial, exc)
@@ -212,7 +223,7 @@ class ADBBackend(CaptureBackend):
         try:
             result = subprocess.run(
                 [self.adb_path, "-s", self.serial, "exec-out", "screencap"],
-                capture_output=True, timeout=self.timeout,
+                capture_output=True, timeout=self.timeout, **_hidden(),
             )
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
             logger.warning("ADBBackend(%s): raw capture failed: %s", self.serial, exc)
@@ -286,7 +297,7 @@ class ADBBackend(CaptureBackend):
         try:
             result = subprocess.run(
                 [self.adb_path, "-s", self.serial, "shell", *args],
-                capture_output=True, text=True, timeout=self.timeout,
+                capture_output=True, text=True, timeout=self.timeout, **_hidden(),
             )
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
             logger.warning("ADBBackend(%s): shell %s failed: %s", self.serial, args, exc)

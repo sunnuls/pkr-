@@ -208,6 +208,14 @@ def estimate_equity(hero_cards: List[str], board: List[str]) -> float:
     if len(hero_cards) < 2:
         return 0.35
 
+    if len(board) >= 3:
+        try:
+            from sim_engine.hand_eval import equity as mc_equity
+
+            return mc_equity(hero_cards, board, opponents=1, iterations=400)
+        except (KeyError, ValueError, IndexError) as exc:
+            logger.debug("postflop equity fallback: %s", exc)
+
     rank_order = "AKQJT98765432"
     r1 = hero_cards[0][0] if hero_cards[0] else "2"
     r2 = hero_cards[1][0] if len(hero_cards) > 1 and hero_cards[1] else "2"

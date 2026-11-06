@@ -1,0 +1,785 @@
+﻿<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Poker Bots</title>
+<style>
+:root {
+  --bg: #090c12;
+  --panel: rgba(255, 255, 255, .035);
+  --panel-2: rgba(255, 255, 255, .06);
+  --line: rgba(255, 255, 255, .08);
+  --text: #e9edf5;
+  --muted: #8790a3;
+  --dim: #555e70;
+  --green: #2fe0a1;
+  --red: #ff5d7d;
+  --amber: #ffb84d;
+  --blue: #5eaaff;
+  --violet: #9b8cff;
+  --radius: 18px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background:
+    radial-gradient(900px 500px at 0% -10%, rgba(47, 224, 161, .10), transparent 60%),
+    radial-gradient(800px 600px at 110% 110%, rgba(155, 140, 255, .10), transparent 60%),
+    var(--bg);
+  color: var(--text);
+  font: 14px/1.4 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: "Cascadia Mono", Consolas, monospace; }
+.pos { color: var(--green); }
+.neg { color: var(--red); }
+
+/* ---------- top bar ---------- */
+header {
+  display: flex; align-items: center; gap: 22px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(9, 12, 18, .6);
+  backdrop-filter: blur(20px);
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: grid; place-items: center; font-size: 22px; color: #06120d;
+  background: linear-gradient(135deg, var(--green), #6ef0ff);
+  box-shadow: 0 6px 24px rgba(47, 224, 161, .35);
+}
+.brand h1 { font: 650 18px "Segoe UI Variable Display", "Segoe UI", sans-serif; letter-spacing: .2px; }
+.brand h1, .brand small { white-space: nowrap; }
+.brand small { display: block; color: var(--muted); font-size: 12px; }
+.stats { display: flex; gap: 10px; margin-left: auto; }
+.stat {
+  min-width: 112px; padding: 6px 14px; border-radius: 14px;
+  background: var(--panel); border: 1px solid var(--line);
+}
+.stat span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .8px; }
+.stat b { font: 650 20px "Segoe UI Variable Display", "Segoe UI", sans-serif; }
+.stat.big b { font-size: 24px; }
+.stat em { display: block; color: var(--dim); font-style: normal; font-size: 11px; }
+.actions { display: flex; gap: 10px; }
+.actions button { white-space: nowrap; }
+@media (max-width: 1150px) { .brand small { display: none; } }
+
+/* ---------- buttons ---------- */
+button {
+  font: inherit; color: var(--text); cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel-2);
+  border-radius: 12px; padding: 9px 16px;
+  display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+  transition: background .15s, border-color .15s, transform .08s, box-shadow .15s;
+}
+button:hover { background: rgba(255, 255, 255, .1); }
+button:active { transform: scale(.97); }
+button svg { width: 15px; height: 15px; }
+.btn-primary {
+  border: 0; color: #04140d; font-weight: 650;
+  background: linear-gradient(135deg, var(--green), #58e8d0);
+  box-shadow: 0 6px 22px rgba(47, 224, 161, .28);
+}
+.btn-primary:hover { background: linear-gradient(135deg, #4dfbb8, #7af3e0); }
+.btn-danger { color: var(--red); border-color: rgba(255, 93, 125, .35); background: rgba(255, 93, 125, .08); }
+.btn-danger:hover { background: rgba(255, 93, 125, .16); }
+
+/* ---------- folders ---------- */
+main {
+  height: calc(100% - 71px); overflow: auto; padding: 20px 22px;
+  display: flex; flex-direction: column; gap: 16px; align-content: start;
+}
+.folder {
+  padding: 14px; border-radius: 22px;
+  background: rgba(255, 255, 255, .02); border: 1px solid var(--line);
+}
+.folder.over { border-color: rgba(47, 224, 161, .45); }
+.folder-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; min-width: 0; }
+.folder-head h2 {
+  font: 650 16px "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  padding: 4px 8px; border-radius: 8px; outline: none;
+}
+.folder-head h2:focus { background: var(--panel-2); }
+.folder-head h2 { user-select: text; }
+.folder-head .tag { color: var(--amber); font-size: 12px; white-space: nowrap; }
+.folder-head .x {
+  padding: 4px 8px; color: var(--muted); background: transparent; border-color: transparent;
+}
+.history {
+  margin-left: auto; display: flex; gap: 6px; overflow: auto; max-width: 58%;
+  padding-bottom: 2px;
+}
+.history::-webkit-scrollbar { height: 0; }
+.history b {
+  flex: none; padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 650;
+  background: var(--panel); border: 1px solid var(--line);
+}
+.phones {
+  display: grid; gap: 18px; align-content: start; min-height: 28px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 640px), 1fr));
+}
+.card .drag {
+  cursor: grab; padding: 6px 8px; color: var(--muted);
+  background: transparent; border-color: transparent;
+}
+.card.dragging { opacity: .4; }
+main::-webkit-scrollbar, .log::-webkit-scrollbar { width: 10px; }
+main::-webkit-scrollbar-thumb, .log::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, .08); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box;
+}
+
+/* ---------- phone card ---------- */
+.card {
+  display: grid; grid-template-columns: 200px 1fr; gap: 18px;
+  padding: 16px; border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .025));
+  border: 1px solid var(--line);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .35);
+  transition: border-color .3s, box-shadow .3s;
+  animation: rise .35s ease-out;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+.card.turn { border-color: rgba(255, 184, 77, .45); box-shadow: 0 0 0 1px rgba(255, 184, 77, .2), 0 20px 60px rgba(255, 184, 77, .12); }
+
+.screen {
+  position: relative; border-radius: 22px; overflow: hidden;
+  background: #000; border: 4px solid #1b2130;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06), 0 12px 30px rgba(0, 0, 0, .5);
+  aspect-ratio: 720 / 1570; cursor: crosshair;
+}
+.screen img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.screen .placeholder {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  color: var(--dim); font-size: 13px; text-align: center; padding: 20px;
+}
+.ripple {
+  position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%;
+  border: 2px solid var(--green); pointer-events: none; animation: ripple .55s ease-out forwards;
+}
+@keyframes ripple { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+
+.screen { align-self: start; }
+.info { display: flex; flex-direction: column; gap: 11px; min-width: 0; }
+.head { display: flex; align-items: center; gap: 12px; }
+.head h2 { font: 650 18px "Segoe UI Variable Display", "Segoe UI", sans-serif; }
+.head .serial { color: var(--muted); font-size: 12px; }
+.pill {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+  background: var(--panel-2); border: 1px solid var(--line); white-space: nowrap;
+}
+.pill i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.pill.live i { animation: pulse 1.6s infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 currentColor; } 70% { box-shadow: 0 0 0 7px transparent; } }
+
+.kpis { display: grid; grid-template-columns: 1.2fr 1fr .7fr; gap: 10px; }
+.kpi { padding: 8px 12px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
+.kpi span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .8px; }
+.kpi b { display: block; font: 650 20px "Segoe UI Variable Display", "Segoe UI", sans-serif; white-space: nowrap; }
+
+.hand {
+  display: flex; align-items: flex-end; gap: 16px; padding: 12px 14px; border-radius: 16px;
+  background: radial-gradient(120% 140% at 50% 0%, rgba(47, 224, 161, .10), rgba(47, 224, 161, .02)), var(--panel);
+  border: 1px solid rgba(47, 224, 161, .14);
+}
+.hand .group span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+.pos { color: var(--amber); text-transform: none; letter-spacing: 0; }
+.cards { display: flex; gap: 6px; }
+.pc {
+  width: 36px; height: 50px; border-radius: 7px; background: #f7f8fb; color: #1a1d26; flex: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font: 700 17px "Segoe UI", sans-serif; line-height: 1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .35); animation: flip .3s ease-out;
+}
+.pc small { font-size: 16px; margin-top: 2px; }
+.pc.red { color: #e0294d; }
+.pc.slot { background: transparent; border: 1.5px dashed rgba(255, 255, 255, .12); box-shadow: none; animation: none; }
+@keyframes flip { from { transform: rotateY(90deg); } }
+.pot { margin-left: auto; text-align: right; }
+.pot span { display: block; margin-bottom: 4px; }
+.pot b { font: 650 20px "Segoe UI Variable Display", "Segoe UI", sans-serif; }
+
+.decision { display: flex; align-items: center; gap: 12px; min-height: 34px; }
+.act {
+  padding: 5px 12px; border-radius: 9px; font-weight: 700; font-size: 12.5px; letter-spacing: .6px;
+  background: var(--panel-2); color: var(--muted);
+}
+.act.CALL { background: rgba(47, 224, 161, .14); color: var(--green); }
+.act.CHECK { background: rgba(94, 170, 255, .14); color: var(--blue); }
+.act.BET, .act.RAISE, .act.ALL_IN { background: rgba(255, 184, 77, .15); color: var(--amber); }
+.act.FOLD { background: rgba(255, 255, 255, .06); color: var(--muted); }
+.decision .why { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.decision .t { margin-left: auto; color: var(--dim); font-size: 12px; }
+
+.controls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.controls button { padding: 8px 10px; white-space: nowrap; }
+.controls button.on { border-color: rgba(47, 224, 161, .5); background: rgba(47, 224, 161, .12); color: var(--green); }
+.controls button.on.pause { border-color: rgba(255, 184, 77, .5); background: rgba(255, 184, 77, .12); color: var(--amber); }
+
+.banner {
+  display: none; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px;
+  background: rgba(255, 93, 125, .08); border: 1px solid rgba(255, 93, 125, .3); color: #ffb3c2; font-size: 13px;
+}
+.banner.show { display: flex; }
+.banner button { margin-left: auto; padding: 6px 12px; }
+
+.tabs { display: flex; gap: 4px; }
+.tabs button { padding: 6px 12px; border-radius: 9px; background: transparent; border-color: transparent; color: var(--muted); font-size: 13px; }
+.tabs button.on { background: var(--panel-2); border-color: var(--line); color: var(--text); }
+.log {
+  flex: 1 1 0; min-height: 70px; overflow: auto; padding: 10px 12px; border-radius: 14px;
+  background: rgba(0, 0, 0, .3); border: 1px solid var(--line);
+  font: 12px/1.55 "Cascadia Mono", Consolas, monospace; color: #aab2c3; user-select: text;
+  white-space: pre-wrap; word-break: break-word;
+}
+.log .l-fold { color: #6f788b; }
+.log .l-call { color: var(--green); }
+.log .l-check { color: var(--blue); }
+.log .l-bet { color: var(--amber); }
+.log .l-rep { color: var(--violet); font-weight: 600; }
+.log .l-bad { color: var(--red); }
+.log .l-sys { color: var(--dim); font-style: italic; }
+
+/* ---------- empty state ---------- */
+.empty {
+  grid-column: 1 / -1; margin: 9vh auto 0; max-width: 460px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+.empty .icon {
+  width: 84px; height: 84px; border-radius: 26px; display: grid; place-items: center; font-size: 40px;
+  background: var(--panel); border: 1px solid var(--line);
+}
+.empty h3 { font: 650 22px "Segoe UI Variable Display", "Segoe UI", sans-serif; }
+.empty p { color: var(--muted); }
+.empty ol { text-align: left; color: var(--muted); padding-left: 20px; line-height: 2; }
+
+/* ---------- modal / toast ---------- */
+.overlay {
+  position: fixed; inset: 0; background: rgba(4, 6, 10, .6); backdrop-filter: blur(6px);
+  display: none; place-items: center; z-index: 10;
+}
+.overlay.show { display: grid; }
+.modal {
+  width: 420px; padding: 24px; border-radius: 22px; background: #121722; border: 1px solid var(--line);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .6); display: flex; flex-direction: column; gap: 14px;
+}
+.modal h3 { font: 650 18px "Segoe UI Variable Display", "Segoe UI", sans-serif; }
+.modal p { color: var(--muted); }
+.modal .row { display: flex; gap: 10px; justify-content: flex-end; }
+#toasts { position: fixed; right: 24px; bottom: 24px; display: flex; flex-direction: column; gap: 10px; z-index: 20; }
+.toast {
+  padding: 12px 16px; border-radius: 14px; background: #161c29; border: 1px solid var(--line);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .5); animation: rise .25s ease-out; max-width: 380px;
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">♠</div>
+    <div><h1>Poker Bots</h1><small>CoinPoker · каждый бот за своим столом</small></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><span>Телефоны</span><b class="num" id="s-phones">0</b></div>
+    <div class="stat"><span>Играют</span><b class="num" id="s-playing">0</b></div>
+    <div class="stat big"><span>Итог сессии</span><b class="num" id="s-total">—</b><em class="num" id="s-delta"></em></div>
+  </div>
+  <div class="actions">
+    <button id="add-folder">Папка</button>
+    <button class="btn-primary" id="all-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>Играть все</button>
+    <button class="btn-danger" id="all-stop"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5"/></svg>Стоп все</button>
+  </div>
+</header>
+
+<main id="grid">
+  <section class="folder" data-id="main">
+    <div class="folder-head">
+      <h2 contenteditable="true" spellcheck="false">Главный</h2>
+      <span class="tag">папка с телефонами</span>
+      <div class="history"></div>
+    </div>
+    <div class="phones"></div>
+  </section>
+  <div class="empty" id="empty">
+    <div class="icon">📱</div>
+    <h3>Телефоны не подключены</h3>
+    <p>Как только телефон подключится, он сразу появится здесь.</p>
+    <ol>
+      <li>Подключи телефон по USB</li>
+      <li>Включи «Отладку по USB» в настройках разработчика</li>
+      <li>На телефоне нажми «Разрешить» для этого компьютера</li>
+    </ol>
+  </div>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="m-title"></h3>
+    <p id="m-text"></p>
+    <div class="row">
+      <button id="m-no">Отмена</button>
+      <button class="btn-primary" id="m-yes">Да</button>
+    </div>
+  </div>
+</div>
+<div id="toasts"></div>
+
+<template id="card-tpl">
+  <section class="card">
+    <div class="screen">
+      <div class="placeholder">Жду экран…</div>
+      <img alt="">
+    </div>
+    <div class="info">
+      <div class="head">
+        <button class="drag" title="Перетащить">⋮⋮</button>
+        <div><h2 class="model"></h2><div class="serial mono"></div></div>
+        <div class="pill"><i></i><span></span></div>
+      </div>
+      <div class="banner"><span class="reason"></span><button class="btn-primary reset">Сбросить и играть</button></div>
+      <div class="kpis">
+        <div class="kpi"><span>Сессия</span><b class="num k-result">—</b></div>
+        <div class="kpi"><span>Стек</span><b class="num k-stack">—</b></div>
+        <div class="kpi"><span>Раздач</span><b class="num k-hands">0</b></div>
+      </div>
+      <div class="hand">
+        <div class="group"><span>Рука <b class="pos"></b></span><div class="cards c-hero"></div></div>
+        <div class="group"><span>Стол</span><div class="cards c-board"></div></div>
+        <div class="pot"><span style="color:var(--muted);font-size:11px;letter-spacing:.8px">БАНК</span><b class="num k-pot">—</b></div>
+      </div>
+      <div class="decision"><span class="act">—</span><span class="why">Решений пока нет</span><span class="t num"></span></div>
+      <div class="controls">
+        <button data-do="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>Играть</button>
+        <button data-do="watch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Смотреть</button>
+        <button data-do="pause" class="pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>Пауза</button>
+        <button data-do="stop"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5"/></svg>Стоп</button>
+      </div>
+      <div class="tabs"><button class="on" data-tab="log">Лог</button><button data-tab="rep">Отчёты по 5 раздач</button></div>
+      <div class="log"></div>
+    </div>
+  </section>
+</template>
+
+<script>
+const STATES = {
+  stopped:       ["Остановлен",        "var(--dim)",    false],
+  stopped_limit: ["Стоп по лимиту",    "var(--red)",    false],
+  starting:      ["Запускается",       "var(--blue)",   true],
+  restarting:    ["Перезапуск",        "var(--blue)",   true],
+  playing:       ["Играет",            "var(--green)",  true],
+  our_turn:      ["Наш ход",           "var(--amber)",  true],
+  watching:      ["Смотрит",           "var(--violet)", true],
+  paused:        ["Пауза",             "var(--amber)",  false],
+  no_frames:     ["Нет кадров",        "var(--red)",    false],
+};
+const SUITS = { s: "♠", h: "♥", d: "♦", c: "♣" };
+const cards = {};          // serial -> {el, frameTs, logSeq, tab, data}
+let api;
+const LAYOUT_KEY = "poker.folders";
+const HIST_KEY = "poker.history";
+let bankStable = null;
+let bankPending = null;
+let bankHits = 0;
+
+function loadFolders() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || "null");
+    if (Array.isArray(saved) && saved.length && saved.some(f => f.id === "main")) return saved;
+  } catch {}
+  return [{ id: "main", name: "Главный", serials: [] }];
+}
+let folders = loadFolders();
+
+function saveFolders() {
+  folders = [...document.querySelectorAll(".folder")].map(folder => ({
+    id: folder.dataset.id,
+    name: folder.querySelector("h2").textContent.trim() || "Папка",
+    serials: [...folder.querySelectorAll(".card")].map(el => el.dataset.serial),
+  }));
+  localStorage.setItem(LAYOUT_KEY, JSON.stringify(folders));
+}
+
+function folderById(id) {
+  return document.querySelector(`.folder[data-id="${id}"]`);
+}
+
+function ensureFolder(folder) {
+  let el = folderById(folder.id);
+  if (el) {
+    el.querySelector("h2").textContent = folder.name || "Папка";
+    return el;
+  }
+  el = document.createElement("section");
+  el.className = "folder";
+  el.dataset.id = folder.id;
+  el.innerHTML = `<div class="folder-head">
+      <h2 contenteditable="true" spellcheck="false"></h2>
+      <button class="x" title="Убрать папку">×</button>
+      <div class="history"></div>
+    </div><div class="phones"></div>`;
+  el.querySelector("h2").textContent = folder.name || "Папка";
+  el.querySelector(".x").onclick = () => {
+    const main = folderById("main").querySelector(".phones");
+    el.querySelectorAll(".card").forEach(card => main.append(card));
+    el.remove();
+    saveFolders();
+  };
+  wireFolder(el);
+  document.getElementById("grid").append(el);
+  return el;
+}
+
+function paintHistory() {
+  let items = [];
+  try { items = JSON.parse(localStorage.getItem(HIST_KEY) || "[]"); } catch {}
+  const box = folderById("main")?.querySelector(".history");
+  if (!box) return;
+  box.innerHTML = items.slice(-18).map(h =>
+    `<b class="num ${h.delta > 0 ? "pos" : "neg"}">${signed(h.delta)}</b>`
+  ).join("");
+  box.scrollLeft = box.scrollWidth;
+}
+
+function noteBank(now) {
+  if (!now) return;
+  if (bankStable == null) { bankStable = now; return; }
+  const delta = Math.round(now - bankStable);
+  if (Math.abs(delta) < 500 || Math.abs(delta) > bankStable * 0.45) {
+    bankPending = null;
+    bankHits = 0;
+    return;
+  }
+  if (bankPending != null && Math.abs(now - bankPending) < 500) bankHits++;
+  else { bankPending = now; bankHits = 1; }
+  if (bankHits < 2) return;
+  let items = [];
+  try { items = JSON.parse(localStorage.getItem(HIST_KEY) || "[]"); } catch {}
+  items.push({ t: Date.now(), delta, total: Math.round(now) });
+  localStorage.setItem(HIST_KEY, JSON.stringify(items.slice(-40)));
+  bankStable = now;
+  bankPending = null;
+  bankHits = 0;
+  paintHistory();
+}
+
+function placeCard(serial) {
+  const el = cards[serial].el;
+  el.dataset.serial = serial;
+  let host = folders.find(f => f.serials.includes(serial));
+  if (!host) {
+    host = folders.find(f => f.id === "main") || folders[0];
+    host.serials.push(serial);
+  }
+  const box = ensureFolder(host).querySelector(".phones");
+  const idx = host.serials.indexOf(serial);
+  const before = [...box.querySelectorAll(".card")].find(card => host.serials.indexOf(card.dataset.serial) > idx);
+  if (before && before !== el) box.insertBefore(el, before);
+  else if (!box.contains(el)) box.append(el);
+}
+
+function wireFolder(folder) {
+  const box = folder.querySelector(".phones");
+  folder.querySelector("h2").addEventListener("blur", saveFolders);
+  box.addEventListener("dragover", e => {
+    e.preventDefault();
+    folder.classList.add("over");
+    const dragging = document.querySelector(".card.dragging");
+    if (!dragging) return;
+    const after = [...box.querySelectorAll(".card:not(.dragging)")].find(card => {
+      const r = card.getBoundingClientRect();
+      return e.clientY < r.top + r.height / 2;
+    });
+    if (after) box.insertBefore(dragging, after);
+    else box.append(dragging);
+  });
+  folder.addEventListener("dragleave", e => {
+    if (!folder.contains(e.relatedTarget)) folder.classList.remove("over");
+  });
+  folder.addEventListener("drop", () => {
+    folder.classList.remove("over");
+    saveFolders();
+  });
+}
+
+const fmt = n => Math.round(n).toLocaleString("ru-RU");
+const signed = n => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n));
+
+function cardHtml(c) {
+  if (!c) return '<div class="pc slot"></div>';
+  const rank = c[0] === "T" ? "10" : c[0], suit = c[1];
+  const red = suit === "h" || suit === "d";
+  return `<div class="pc ${red ? "red" : ""}">${rank}<small>${SUITS[suit] || "?"}</small></div>`;
+}
+
+function toast(text) {
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = text;
+  document.getElementById("toasts").append(t);
+  setTimeout(() => t.remove(), 4500);
+}
+
+function ask(title, text) {
+  const ov = document.getElementById("overlay");
+  document.getElementById("m-title").textContent = title;
+  document.getElementById("m-text").textContent = text;
+  ov.classList.add("show");
+  return new Promise(resolve => {
+    const done = v => { ov.classList.remove("show"); resolve(v); };
+    document.getElementById("m-yes").onclick = () => done(true);
+    document.getElementById("m-no").onclick = () => done(false);
+  });
+}
+
+async function startBot(serial, tap, reset = false) {
+  const r = await api.start(serial, tap, reset);
+  if (r && r.stopped !== undefined) {
+    if (await ask("Бот остановлен по лимиту", `${r.stopped || "Сработал стоп-лосс или тейк-профит"}. Запустить заново?`))
+      await api.start(serial, tap, true);
+  }
+}
+
+function makeCard(serial) {
+  const el = document.getElementById("card-tpl").content.firstElementChild.cloneNode(true);
+  const c = { el, frameTs: 0, logSeq: 0, tab: "log", data: null };
+  el.querySelector(".serial").textContent = serial;
+  el.querySelector(".c-hero").innerHTML = cardHtml() + cardHtml();
+  el.querySelector(".c-board").innerHTML = cardHtml().repeat(5);
+
+  el.querySelectorAll(".controls button").forEach(b => b.onclick = async () => {
+    const what = b.dataset.do;
+    if (what === "play") await startBot(serial, true);
+    if (what === "watch") await startBot(serial, false);
+    if (what === "pause") await api.pause(serial);
+    if (what === "stop") await api.stop(serial);
+    refresh();
+  });
+  el.querySelector(".reset").onclick = () => startBot(serial, true, true);
+
+  el.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+    el.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+    c.tab = b.dataset.tab;
+    c.logSeq = 0;
+    el.querySelector(".log").innerHTML = "";
+    pollLog(serial);
+  });
+
+  const grip = el.querySelector(".drag");
+  grip.addEventListener("mousedown", () => { el.draggable = true; });
+  el.addEventListener("dragstart", e => {
+    el.classList.add("dragging");
+    e.dataTransfer.setData("text/plain", serial);
+    e.dataTransfer.effectAllowed = "move";
+  });
+  el.addEventListener("dragend", () => {
+    el.classList.remove("dragging");
+    el.draggable = false;
+    document.querySelectorAll(".folder.over").forEach(f => f.classList.remove("over"));
+    saveFolders();
+  });
+
+  const screen = el.querySelector(".screen");
+  screen.onclick = async e => {
+    const r = screen.getBoundingClientRect();
+    const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+    const dot = document.createElement("div");
+    dot.className = "ripple";
+    dot.style.left = (e.clientX - r.left) + "px";
+    dot.style.top = (e.clientY - r.top) + "px";
+    screen.append(dot);
+    setTimeout(() => dot.remove(), 600);
+    await api.tap(serial, fx, fy);
+  };
+
+  cards[serial] = c;
+  placeCard(serial);
+  pollLog(serial);
+  return c;
+}
+
+function update(c, d) {
+  const el = c.el;
+  c.data = d;
+  el.querySelector(".model").textContent = d.model || d.serial;
+  if (d.w && d.h) el.querySelector(".screen").style.aspectRatio = `${d.w} / ${d.h}`;
+
+  const [label, color, live] = STATES[d.state] || [d.state, "var(--muted)", false];
+  const pill = el.querySelector(".pill");
+  pill.style.color = color;
+  pill.classList.toggle("live", live);
+  pill.querySelector("span").textContent = label;
+  el.classList.toggle("turn", d.state === "our_turn");
+
+  const res = el.querySelector(".k-result");
+  res.textContent = d.session_start ? signed(d.session_result) : "—";
+  res.className = "num k-result " + (d.session_result > 0 ? "pos" : d.session_result < 0 ? "neg" : "");
+  el.querySelector(".k-stack").textContent = d.stack ? fmt(d.stack) : "—";
+  el.querySelector(".k-hands").textContent = d.hands || 0;
+  const POS = { sb: "малый блайнд", bb: "большой блайнд", btn: "батон" };
+  el.querySelector(".pos").textContent = POS[d.position] || "";
+  el.querySelector(".k-pot").textContent = d.pot ? fmt(d.pot) : "—";
+
+  const hero = (d.hero || []).join(), board = (d.board || []).join();
+  if (el.dataset.hero !== hero) {
+    el.dataset.hero = hero;
+    el.querySelector(".c-hero").innerHTML = [0, 1].map(i => cardHtml((d.hero || [])[i])).join("");
+  }
+  if (el.dataset.board !== board) {
+    el.dataset.board = board;
+    el.querySelector(".c-board").innerHTML = [0, 1, 2, 3, 4].map(i => cardHtml((d.board || [])[i])).join("");
+  }
+
+  const m = (d.last_decision || "").match(/^(\S+)\s+(\S+)\s*\|?\s*(.*)$/);
+  if (m) {
+    const act = el.querySelector(".act");
+    act.textContent = m[2].replace("_", "-");
+    act.className = "act " + m[2];
+    el.querySelector(".why").textContent = m[3];
+    el.querySelector(".t").textContent = m[1];
+  }
+
+  const running = !["stopped", "stopped_limit"].includes(d.state);
+  const btn = what => el.querySelector(`[data-do="${what}"]`);
+  btn("play").classList.toggle("on", running && d.tap);
+  btn("watch").classList.toggle("on", running && !d.tap);
+  btn("pause").classList.toggle("on", d.paused);
+
+  const banner = el.querySelector(".banner");
+  banner.classList.toggle("show", d.state === "stopped_limit");
+  banner.querySelector(".reason").textContent = "Остановлен: " + (d.stop_reason || "лимит сессии");
+}
+
+async function refresh() {
+  let rows;
+  try { rows = await api.overview(); } catch { return; }
+  const seen = new Set();
+  for (const d of rows) {
+    seen.add(d.serial);
+    update(cards[d.serial] || makeCard(d.serial), d);
+  }
+  for (const s of Object.keys(cards)) if (!seen.has(s)) { cards[s].el.remove(); delete cards[s]; }
+  document.getElementById("empty").style.display = rows.length ? "none" : "";
+
+  const playing = rows.filter(d => ["playing", "our_turn", "starting", "restarting"].includes(d.state) && d.tap).length;
+  const known = rows.filter(d => d.session_start > 0 && d.stack > 0);
+  const start = known.reduce((s, d) => s + d.session_start, 0);
+  const now = known.reduce((s, d) => s + d.stack, 0);
+  const delta = now - start;
+  document.getElementById("s-phones").textContent = rows.length;
+  document.getElementById("s-playing").textContent = playing;
+  const t = document.getElementById("s-total");
+  t.textContent = now ? fmt(now) : "—";
+  t.className = "num " + (delta > 0 ? "pos" : delta < 0 ? "neg" : "");
+  const sub = document.getElementById("s-delta");
+  sub.textContent = start ? `старт ${fmt(start)}  ${signed(delta)}` : "";
+  sub.className = "num " + (delta > 0 ? "pos" : delta < 0 ? "neg" : "");
+  noteBank(now);
+}
+
+async function pollFrames() {
+  for (const [serial, c] of Object.entries(cards)) {
+    try {
+      const f = await api.frame(serial, c.frameTs);
+      if (f) {
+        c.frameTs = f.ts;
+        c.el.querySelector(".screen img").src = f.src;
+        c.el.querySelector(".placeholder").style.display = "none";
+      }
+    } catch {}
+  }
+  setTimeout(pollFrames, 600);
+}
+
+function lineClass(s) {
+  if (/^===|^\s{3}\S/.test(s)) return "l-rep";
+  if (/Traceback|Error|упал|STOP|stop-loss|take-profit/i.test(s)) return "l-bad";
+  if (/^---/.test(s)) return "l-sys";
+  if (/\b(RAISE|BET|ALL_IN)\b/.test(s)) return "l-bet";
+  if (/\bCALL\b/.test(s)) return "l-call";
+  if (/\bCHECK\b/.test(s)) return "l-check";
+  if (/\bFOLD\b/.test(s)) return "l-fold";
+  return "";
+}
+
+function appendLines(box, lines) {
+  const stick = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+  const frag = document.createDocumentFragment();
+  for (const s of lines) {
+    const div = document.createElement("div");
+    div.className = lineClass(s);
+    div.textContent = s;
+    frag.append(div);
+  }
+  box.append(frag);
+  while (box.childElementCount > 400) box.firstElementChild.remove();
+  if (stick) box.scrollTop = box.scrollHeight;
+}
+
+async function pollLog(serial) {
+  const c = cards[serial];
+  if (!c) return;
+  const box = c.el.querySelector(".log");
+  try {
+    if (c.tab === "log") {
+      const r = await api.logs(serial, c.logSeq);
+      if (r.lines.length) appendLines(box, r.lines);
+      c.logSeq = r.seq;
+    } else {
+      const text = await api.reports(serial);
+      if (box.dataset.text !== text) {
+        box.dataset.text = text;
+        box.innerHTML = "";
+        appendLines(box, text ? text.trimEnd().split("\n") : ["Отчёт появится после первых 5 раздач."]);
+        box.scrollTop = box.scrollHeight;
+      }
+    }
+  } catch {}
+}
+
+function loop() {
+  refresh();
+  Object.keys(cards).forEach(pollLog);
+}
+
+window.addEventListener("pywebviewready", () => {
+  api = window.pywebview.api;
+  const mainSaved = folders.find(f => f.id === "main");
+  if (mainSaved && mainSaved.name) folderById("main").querySelector("h2").textContent = mainSaved.name;
+  document.querySelectorAll(".folder").forEach(wireFolder);
+  folders.filter(f => f.id !== "main").forEach(ensureFolder);
+  paintHistory();
+  document.addEventListener("mouseup", () => {
+    setTimeout(() => {
+      if (!document.querySelector(".card.dragging"))
+        document.querySelectorAll(".card").forEach(el => { el.draggable = false; });
+    }, 0);
+  });
+  document.getElementById("add-folder").onclick = () => {
+    const id = "f" + Date.now();
+    const folder = { id, name: "Папка", serials: [] };
+    folders.push(folder);
+    ensureFolder(folder);
+    saveFolders();
+  };
+  document.getElementById("all-play").onclick = async () => {
+    const r = await api.start_all();
+    const limited = Object.entries(r).filter(([, v]) => v.stopped !== undefined).map(([s]) => s);
+    if (limited.length) toast(`Не запущены (стоп по лимиту): ${limited.join(", ")}. Нажми «Сбросить и играть» на карточке.`);
+    refresh();
+  };
+  document.getElementById("all-stop").onclick = async () => {
+    if (await ask("Остановить всех ботов?", "Все боты перестанут играть. Телефоны останутся за столами.")) {
+      await api.stop_all();
+      refresh();
+    }
+  };
+  loop();
+  setInterval(loop, 1200);
+  pollFrames();
+});
+</script>
+</body>
+</html>

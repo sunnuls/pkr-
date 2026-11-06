@@ -117,3 +117,7 @@ variance_data/
 training_data/sim_*
 *.simulation
 sim_output/
+
+# Live-play artifacts
+runs/
+

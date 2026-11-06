@@ -9,6 +9,7 @@ anchor pipeline removed.
 
 import asyncio
 import logging
+import random
 import threading
 import time
 from dataclasses import dataclass, field
@@ -1722,6 +1723,10 @@ class BotInstance:
 
         self._vision_error_count = 0
 
+        if self._get_room_for_account() != "pokerstars" and hasattr(state, "buttons"):
+            await self._vision_solo_step(state)
+            return
+
         # ── Phase 6: HIVE card sharing ────────────────────────────────────────
         hero_cards = []
         if hasattr(state, "get_hero_cards"):
@@ -1888,6 +1893,36 @@ class BotInstance:
 
         except Exception as exc:
             logger.warning("action execution error: %s", exc)
+
+    async def _vision_solo_step(self, state: Any) -> None:
+        """Mobile table: decide from this bot's own view only and tap the button."""
+        from sim_engine.vision_decision import decide as vision_decide
+
+        choice = vision_decide(state)
+        if choice is None:
+            await asyncio.sleep(0.5)
+            return
+        backend = self._get_emulator_backend()
+        if backend is None:
+            logger.debug("Bot %s: no emulator backend for tap", self.bot_id[:8])
+            return
+
+        self._last_turn_time = time.time()
+        logger.info(
+            "Bot %s: hero=%s board=%s pot=%.0f call=%.0f → %s (%s)",
+            self.bot_id[:8], state.hero_cards, state.board_cards,
+            getattr(state, "pot", 0.0), getattr(state, "call_amount", 0.0),
+            choice.decision.action.value, choice.decision.reasoning[:80],
+        )
+        await asyncio.sleep(random.uniform(1.2, 3.0))
+        clicked = backend.click(choice.xy[0], choice.xy[1])
+        logger.info(
+            "Bot %s: tapped %s at %s → %s",
+            self.bot_id[:8], choice.button, choice.xy, clicked,
+        )
+        self.stats.actions_executed += 1
+        self.stats.decisions_made += 1
+        await asyncio.sleep(2.0)
 
     def _make_decision(self, state: Any, room: str, known_opp_cards: list) -> Optional[Any]:
         """Make a decision using PokerAI (PS) or CollectiveDecisionEngine (other)."""
